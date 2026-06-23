@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ลงทะเบียนน้อง MER_UTT</title>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Sarabun', 'Noto Sans Thai', sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #06C755 0%, #04A648 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .header .icon {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      color: #1a1a1a;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 13px;
+      color: #888;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 15px;
+      color: #1a1a1a;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: #06C755;
+    }
+
+    .field .error-text {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      background: #06C755;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .submit-btn:active {
+      transform: scale(0.98);
+    }
+
+    .submit-btn:disabled {
+      background: #b8e6c8;
+      cursor: not-allowed;
+    }
+
+    .status-box {
+      display: none;
+      text-align: center;
+      padding: 30px 10px;
+    }
+
+    .status-box .status-icon {
+      font-size: 56px;
+      margin-bottom: 12px;
+    }
+
+    .status-box h2 {
+      font-size: 18px;
+      margin-bottom: 6px;
+      color: #1a1a1a;
+    }
+
+    .status-box p {
+      font-size: 13px;
+      color: #888;
+      word-break: break-word;
+    }
+
+    .status-box.error h2 {
+      color: #e74c3c;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255, 255, 255, 0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <!-- ฟอร์มหลัก -->
+    <div id="formSection">
+      <div class="header">
+        <div class="icon">📋</div>
+        <h1>ลงทะเบียนน้อง MER</h1>
+        <p>กรุณากรอกข้อมูลให้ครบถ้วน</p>
+      </div>
+
+      <form id="registerForm">
+        <div class="field">
+          <label for="name">ชื่อ-สกุล</label>
+          <input type="text" id="name" placeholder="เช่น สมชาย ใจดี" autocomplete="off">
+          <div class="error-text" id="nameError">กรุณากรอกชื่อ-สกุล</div>
+        </div>
+
+        <div class="field">
+          <label for="phone">เบอร์โทรศัพท์</label>
+          <input type="tel" id="phone" placeholder="เช่น 0812345678" maxlength="10" autocomplete="off">
+          <div class="error-text" id="phoneError">เบอร์โทรไม่ถูกต้อง ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0</div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn" disabled>กำลังเชื่อมต่อ LINE...</button>
+      </form>
+    </div>
+
+    <!-- หน้าสถานะ (สำเร็จ/error) -->
+    <div class="status-box" id="statusBox">
+      <div class="status-icon" id="statusIcon"></div>
+      <h2 id="statusTitle"></h2>
+      <p id="statusMessage"></p>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ แก้ 2 ค่านี้ให้ตรงกับของพี่ ⚠️
+    const LIFF_ID = '2010481173-WXLYoI29';
+    const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyHwNc1Ko2lw8lsN3ePcGi3yoqYZbGxHMz4ZoEK93nHUvS2ZXHyMzwkwEnWbxvPwO65/exec';
+
+    let userLineId = '';
+
+    // ---------- เริ่มต้น LIFF ----------
+    async function initLiff() {
+      const submitBtn = document.getElementById('submitBtn');
+
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        userLineId = profile.userId;
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'บันทึกข้อมูล';
+
+      } catch (err) {
+        showStatus('error', '⚠️', 'เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ LINE ได้: ' + (err && err.message ? err.message : JSON.stringify(err)));
+      }
+    }
+
+    initLiff();
+
+    // ---------- ตรวจสอบเบอร์โทร ----------
+    function isValidThaiPhone(phone) {
+      return /^0\d{9}$/.test(phone);
+    }
+
+    // ---------- จัดการ submit ฟอร์ม ----------
+    document.getElementById('registerForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+
+      document.getElementById('nameError').style.display = 'none';
+      document.getElementById('phoneError').style.display = 'none';
+
+      let hasError = false;
+
+      if (!name) {
+        document.getElementById('nameError').style.display = 'block';
+        hasError = true;
+      }
+      if (!isValidThaiPhone(phone)) {
+        document.getElementById('phoneError').style.display = 'block';
+        hasError = true;
+      }
+      if (!userLineId) {
+        showStatus('error', '⚠️', 'เกิดข้อผิดพลาด', 'ไม่พบ LINE ID กรุณาเปิดผ่านแอป LINE');
+        return;
+      }
+      if (hasError) return;
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="loading-spinner"></span>กำลังบันทึก...';
+
+      // ---------- ส่งข้อมูลไปยัง Google Apps Script ผ่าน fetch ----------
+      fetch(GAS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // ใช้ text/plain เพื่อเลี่ยง CORS preflight
+        body: JSON.stringify({ lineId: userLineId, name: name, phone: phone })
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (result) {
+          if (result.success) {
+            showStatus('success', '✅', result.message, 'ขอบคุณที่ลงทะเบียนครับ');
+            setTimeout(function () {
+              if (liff.isInClient()) {
+                liff.closeWindow();
+              }
+            }, 2000);
+          } else {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'บันทึกข้อมูล';
+            showStatus('error', '⚠️', 'ไม่สำเร็จ', result.message);
+          }
+        })
+        .catch(function (err) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = 'บันทึกข้อมูล';
+          showStatus('error', '⚠️', 'เกิดข้อผิดพลาด', err.message || 'กรุณาลองใหม่อีกครั้ง');
+        });
+    });
+
+    // ---------- แสดงหน้าสถานะ ----------
+    function showStatus(type, icon, title, message) {
+      document.getElementById('formSection').style.display = 'none';
+      const statusBox = document.getElementById('statusBox');
+      statusBox.style.display = 'block';
+      statusBox.className = 'status-box ' + (type === 'error' ? 'error' : '');
+      document.getElementById('statusIcon').textContent = icon;
+      document.getElementById('statusTitle').textContent = title;
+      document.getElementById('statusMessage').textContent = message;
+    }
+  </script>
+
+</body>
+</html>
