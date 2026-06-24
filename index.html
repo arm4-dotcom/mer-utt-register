@@ -67,7 +67,8 @@
     <input type="text" id="nameInput" placeholder="เช่น สมชาย ใจดี">
 
     <label for="phoneInput">เบอร์โทรศัพท์</label>
-    <input type="tel" id="phoneInput" placeholder="เช่น 0812345678">
+    <input type="tel" id="phoneInput" placeholder="เช่น 0812345678" maxlength="10" inputmode="numeric">
+    <div id="phoneError" style="display:none; color:#e74c3c; font-size:12px; margin-top:5px;">เบอร์โทรต้องเป็นเลข 10 หลัก และขึ้นต้นด้วย 0</div>
 
     <button id="submitBtn" onclick="submitForm()">บันทึก</button>
   </div>
@@ -108,9 +109,16 @@ async function initLiff() {
 async function submitForm() {
   const name  = document.getElementById('nameInput').value.trim();
   const phone = document.getElementById('phoneInput').value.trim();
+  const phoneErrorEl = document.getElementById('phoneError');
+  phoneErrorEl.style.display = 'none';
 
   if (!name || !phone) {
     alert('กรุณากรอกชื่อ-สกุล และเบอร์โทรศัพท์ให้ครบ');
+    return;
+  }
+
+  if (!isValidThaiPhone(phone)) {
+    phoneErrorEl.style.display = 'block';
     return;
   }
 
@@ -135,11 +143,17 @@ async function submitForm() {
       showStatus('success', 'ลงทะเบียนสำเร็จ', 'ขอบคุณที่ลงทะเบียนครับ/ค่ะ');
     } else {
       showStatus('error', 'ลงทะเบียนไม่สำเร็จ', data.message || 'กรุณาลองใหม่อีกครั้ง');
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
     }
   } catch (err) {
     document.getElementById('formBox').style.display = 'none';
     showStatus('error', 'เกิดข้อผิดพลาด', err.message);
   }
+}
+
+function isValidThaiPhone(phone) {
+  return /^0\d{9}$/.test(phone);
 }
 
 function showStatus(type, title, message) {
