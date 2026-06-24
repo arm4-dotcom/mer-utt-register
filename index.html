@@ -78,9 +78,14 @@
       <option value="">-- เลือกประเภทช่องทาง --</option>
     </select>
 
+    <label for="sspSelect">เขต SSP</label>
+    <select id="sspSelect" disabled>
+      <option value="">-- เลือกประเภทช่องทางก่อน --</option>
+    </select>
+
     <label for="storeSelect">ชื่อร้านค้า/ลูกค้า</label>
     <select id="storeSelect" disabled>
-      <option value="">-- เลือกประเภทช่องทางก่อน --</option>
+      <option value="">-- เลือกเขต SSP ก่อน --</option>
     </select>
 
     <button id="submitBtn" onclick="submitForm()">บันทึก</button>
@@ -149,18 +154,53 @@ function populateChannels() {
   });
 }
 
+// ชั้น 1 -> ชั้น 2: เลือก Channel แล้วกรอง SSP
 document.getElementById('channelSelect').addEventListener('change', function () {
-  const selected = this.value;
+  const selectedChannel = this.value;
+
+  const sspSelect = document.getElementById('sspSelect');
+  sspSelect.innerHTML = '<option value="">-- เลือกเขต SSP --</option>';
+
+  const storeSelect = document.getElementById('storeSelect');
+  storeSelect.innerHTML = '<option value="">-- เลือกเขต SSP ก่อน --</option>';
+  storeSelect.disabled = true;
+
+  if (!selectedChannel) {
+    sspSelect.disabled = true;
+    return;
+  }
+
+  const seen = {};
+  storeMasterData
+    .filter(function (item) { return item.channel === selectedChannel; })
+    .forEach(function (item) {
+      if (!seen[item.ssp]) {
+        seen[item.ssp] = true;
+        const opt = document.createElement('option');
+        opt.value = item.ssp;
+        opt.textContent = item.ssp;
+        sspSelect.appendChild(opt);
+      }
+    });
+
+  sspSelect.disabled = false;
+});
+
+// ชั้น 2 -> ชั้น 3: เลือก SSP แล้วกรองร้านค้า
+document.getElementById('sspSelect').addEventListener('change', function () {
+  const selectedChannel = document.getElementById('channelSelect').value;
+  const selectedSsp = this.value;
+
   const storeSelect = document.getElementById('storeSelect');
   storeSelect.innerHTML = '<option value="">-- เลือกร้านค้า/ลูกค้า --</option>';
 
-  if (!selected) {
+  if (!selectedSsp) {
     storeSelect.disabled = true;
     return;
   }
 
   storeMasterData
-    .filter(function (item) { return item.channel === selected; })
+    .filter(function (item) { return item.channel === selectedChannel && item.ssp === selectedSsp; })
     .forEach(function (item) {
       const opt = document.createElement('option');
       opt.value = item.storeId; // ใช้ StoreID เป็นค่าอ้างอิงจริง (กันชื่อซ้ำ)
@@ -175,11 +215,12 @@ async function submitForm() {
   const name      = document.getElementById('nameInput').value.trim();
   const phone     = document.getElementById('phoneInput').value.trim();
   const channel   = document.getElementById('channelSelect').value;
+  const ssp       = document.getElementById('sspSelect').value;
   const storeId   = document.getElementById('storeSelect').value;
   const phoneErrorEl = document.getElementById('phoneError');
   phoneErrorEl.style.display = 'none';
 
-  if (!name || !phone || !channel || !storeId) {
+  if (!name || !phone || !channel || !ssp || !storeId) {
     alert('กรุณากรอกข้อมูลให้ครบทุกช่อง');
     return;
   }
@@ -190,11 +231,12 @@ async function submitForm() {
   }
 
   const selectedStore = storeMasterData.find(function (item) {
-    return item.channel === channel && item.storeId === storeId;
+    return item.channel === channel && item.ssp === ssp && item.storeId === storeId;
   });
 
   const customer    = selectedStore ? selectedStore.customer    : '';
   const storenameTh = selectedStore ? selectedStore.storenameTh : '';
+  const province     = selectedStore ? selectedStore.province   : '';
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
@@ -211,9 +253,11 @@ async function submitForm() {
         name: name,
         phone: phone,
         channel: channel,
+        ssp: ssp,
         storeId: storeId,
         customer: customer,
-        storenameTh: storenameTh
+        storenameTh: storenameTh,
+        province: province
       })
     });
 
