@@ -55,6 +55,7 @@
   #statusTitle { font-size: 17px; font-weight: 600; margin-top: 6px; color: #222; }
   #statusMessage { font-size: 13px; color: #888; margin-top: 4px; }
   .errorText { display: none; color: #e74c3c; font-size: 12px; margin-top: 5px; }
+  #positionOtherField { display: none; }
 </style>
 </head>
 <body>
@@ -72,6 +73,17 @@
     <label for="phoneInput">เบอร์โทรศัพท์</label>
     <input type="tel" id="phoneInput" placeholder="เช่น 0812345678" maxlength="10" inputmode="numeric">
     <div id="phoneError" class="errorText">เบอร์โทรต้องเป็นเลข 10 หลัก และขึ้นต้นด้วย 0</div>
+
+    <label for="positionSelect">ตำแหน่ง</label>
+    <select id="positionSelect">
+      <option value="">-- เลือกตำแหน่ง --</option>
+    </select>
+
+    <div id="positionOtherField">
+      <label for="positionOtherInput">ระบุตำแหน่ง</label>
+      <input type="text" id="positionOtherInput" placeholder="กรุณาระบุตำแหน่งของคุณ">
+      <div id="positionOtherError" class="errorText">กรุณาระบุตำแหน่ง</div>
+    </div>
 
     <label for="channelSelect">ประเภทช่องทาง (Channel)</label>
     <select id="channelSelect">
@@ -101,6 +113,7 @@
 <script>
 const LIFF_ID = '2010481173-WXLYoI29';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyHwNc1Ko2lw8lsN3ePcGi3yoqYZbGxHMz4ZoEK93nHUvS2ZXHyMzwkwEnWbxvPwO65/exec';
+const OTHER_POSITION_LABEL = 'อื่น ๆ';
 
 let lineUserId = null;
 let storeMasterData = [];
@@ -117,7 +130,7 @@ async function initLiff() {
     const profile = await liff.getProfile();
     lineUserId = profile.userId;
 
-    await loadStoreMaster();
+    await Promise.all([loadStoreMaster(), loadPositions()]);
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('formBox').style.display = 'block';
@@ -139,6 +152,40 @@ async function loadStoreMaster() {
     console.error('โหลดรายชื่อ Channel/ร้านค้าไม่สำเร็จ', err);
   }
 }
+
+async function loadPositions() {
+  try {
+    const res = await fetch(GAS_URL + '?action=positions');
+    const data = await res.json();
+    if (data.status === 'success') {
+      populatePositions(data.data || []);
+    }
+  } catch (err) {
+    console.error('โหลดรายชื่อตำแหน่งไม่สำเร็จ', err);
+  }
+}
+
+function populatePositions(positions) {
+  const select = document.getElementById('positionSelect');
+  positions.forEach(function (p) {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+}
+
+// แสดง/ซ่อนกล่องกรอกเพิ่มเติม เมื่อเลือก "อื่น ๆ"
+document.getElementById('positionSelect').addEventListener('change', function () {
+  const otherField = document.getElementById('positionOtherField');
+  if (this.value === OTHER_POSITION_LABEL) {
+    otherField.style.display = 'block';
+  } else {
+    otherField.style.display = 'none';
+    document.getElementById('positionOtherInput').value = '';
+    document.getElementById('positionOtherError').style.display = 'none';
+  }
+});
 
 function populateChannels() {
   const select = document.getElementById('channelSelect');
@@ -214,13 +261,17 @@ document.getElementById('sspSelect').addEventListener('change', function () {
 async function submitForm() {
   const name      = document.getElementById('nameInput').value.trim();
   const phone     = document.getElementById('phoneInput').value.trim();
+  const positionSelected = document.getElementById('positionSelect').value;
+  const positionOther     = document.getElementById('positionOtherInput').value.trim();
   const channel   = document.getElementById('channelSelect').value;
   const ssp       = document.getElementById('sspSelect').value;
   const storeId   = document.getElementById('storeSelect').value;
   const phoneErrorEl = document.getElementById('phoneError');
+  const positionOtherErrorEl = document.getElementById('positionOtherError');
   phoneErrorEl.style.display = 'none';
+  positionOtherErrorEl.style.display = 'none';
 
-  if (!name || !phone || !channel || !ssp || !storeId) {
+  if (!name || !phone || !positionSelected || !channel || !ssp || !storeId) {
     alert('กรุณากรอกข้อมูลให้ครบทุกช่อง');
     return;
   }
@@ -228,6 +279,16 @@ async function submitForm() {
   if (!isValidThaiPhone(phone)) {
     phoneErrorEl.style.display = 'block';
     return;
+  }
+
+  // ถ้าเลือก "อื่น ๆ" ต้องกรอกระบุเพิ่มเติม -> ใช้ข้อความนั้นเป็นค่าตำแหน่งจริง
+  let finalPosition = positionSelected;
+  if (positionSelected === OTHER_POSITION_LABEL) {
+    if (!positionOther) {
+      positionOtherErrorEl.style.display = 'block';
+      return;
+    }
+    finalPosition = positionOther;
   }
 
   const selectedStore = storeMasterData.find(function (item) {
@@ -252,6 +313,7 @@ async function submitForm() {
         lineId: lineUserId,
         name: name,
         phone: phone,
+        position: finalPosition,
         channel: channel,
         ssp: ssp,
         storeId: storeId,
